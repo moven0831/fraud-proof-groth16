@@ -112,4 +112,24 @@ pub struct ProvingKey<E: Pairing> {
     pub h_query: Vec<E::G1Affine>,
     /// The elements `l_i * G` in `E::G1`.
     pub l_query: Vec<E::G1Affine>,
+    /// The toxic wastes of the Groth16 zkSNARK
+    pub toxic_waste: ToxicWaste<E>,
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+/// The toxic wastes of the Groth16 zkSNARK
+#[derive(Clone, Debug, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+pub struct ToxicWaste<E: Pairing> {
+    /// The elements `alpha` in trusted setup.
+    pub alpha: E::ScalarField,
+    /// The elements `beta` in trusted setup.
+    pub beta: E::ScalarField,
+    /// The elements `gamma` in trusted setup.
+    pub gamma: E::ScalarField,
+    /// The elements `delta` in trusted setup.
+    pub delta: E::ScalarField,
+    /// The elements `tau` in trusted setup.
+    pub tau: E::ScalarField,
 }
