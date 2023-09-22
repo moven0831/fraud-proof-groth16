@@ -1,3 +1,4 @@
+use crate::ToxicWaste;
 use crate::{r1cs_to_qap::R1CSToQAP, Groth16, ProvingKey, Vec, VerifyingKey};
 use ark_ec::{pairing::Pairing, scalar_mul::fixed_base::FixedBase, CurveGroup, Group};
 use ark_ff::{Field, PrimeField, UniformRand, Zero};
@@ -202,6 +203,14 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16<E, QAP> {
             gamma_abc_g1: E::G1::normalize_batch(&gamma_abc_g1),
         };
 
+        let toxic_waste = ToxicWaste::<E> {
+            alpha: alpha.clone(),
+            beta: beta.clone(),
+            gamma: gamma.clone(),
+            delta: delta.clone(),
+            tau: t.clone(),
+        };
+
         let batch_normalization_time = start_timer!(|| "Convert proving key elements to affine");
         let a_query = E::G1::normalize_batch(&a_query);
         let b_g1_query = E::G1::normalize_batch(&b_g1_query);
@@ -220,6 +229,7 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16<E, QAP> {
             b_g2_query,
             h_query,
             l_query,
+            toxic_waste
         })
     }
 }
