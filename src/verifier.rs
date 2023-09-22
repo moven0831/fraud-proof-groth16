@@ -41,6 +41,28 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16<E, QAP> {
     /// Verify a Groth16 proof `proof` against the prepared verification key `pvk` and prepared public
     /// inputs. This should be preferred over [`verify_proof`] if the instance's public inputs are
     /// known in advance.
+    /// 
+    /// Pairing Format:
+    /// (G1 elements)[
+    ///     proof.a,
+    ///     gamma^{-1} * (beta * a_i + alpha * b_i + c_i) * H, H is the generator of E::G1
+    ///     proof_c
+    /// ],
+    /// (G2 elements)[
+    ///     proof_b,
+    ///     -gamma,
+    ///     -delta
+    /// ]
+    /// 
+    /// Pairing Result
+    /// [Groth16] Paper:
+    /// [A]1 · [B]2 = [α]1 · [β]2 + [sigma_{i=0 to l} (γ^{-1}) · a_i · (βa_i(x) + αb_i(x) + c_i(x))]1 · [γ]2 + [C]1 · [δ]2
+    /// 
+    /// This implementation
+    /// Pairing result = [A]1 · [B]2 + 
+    ///                  [sigma_{i=0 to l} (γ^{-1}) · a_i · (βa_i(x) + αb_i(x) + c_i(x))]1 · [-γ]2 +
+    ///                  [C]1 · [-δ]2
+    ///                = [α]1 · [β]2
     pub fn verify_proof_with_prepared_inputs(
         pvk: &PreparedVerifyingKey<E>,
         proof: &Proof<E>,
