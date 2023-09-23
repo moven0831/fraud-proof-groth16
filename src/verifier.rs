@@ -34,6 +34,7 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16<E, QAP> {
         for (i, b) in public_inputs.iter().zip(pvk.vk.gamma_abc_g1.iter().skip(1)) {
             g_ic.add_assign(&b.mul_bigint(i.into_bigint()));
         }
+        // println!("g_ic in verifier\n{:?}", g_ic);
 
         Ok(g_ic)
     }
@@ -82,6 +83,8 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16<E, QAP> {
         );
 
         let test = E::final_exponentiation(qap).ok_or(SynthesisError::UnexpectedIdentity)?;
+        // println!("\nVerifier Test Result\n{:?}", test.0);
+        // println!("\npvk.alpha_g1_beta_g2\n{:?}", pvk.alpha_g1_beta_g2);
 
         Ok(test.0 == pvk.alpha_g1_beta_g2)
     }
