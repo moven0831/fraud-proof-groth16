@@ -43,6 +43,13 @@ fn square_and_add<F: Field>(xl: F, xr: F) -> F {
     output
 }
 
+fn square_and_add_twice<F: Field>(xl: F, xr: F) -> F {
+    let mut output = xl.square();
+    output.add_assign(&xr);
+    output.add_assign(&xr);
+    output
+}
+
 /// This is our demo circuit for proving knowledge of the
 /// output of simple square and add function
 struct SquareAndAdd<F: Field> {
@@ -101,8 +108,8 @@ fn test_square_and_add_groth16() {
     let pvk = Groth16::<Bls12_377>::process_vk(&vk).unwrap();
 
     // println!("pk: {:?}\nvk: {:?}\npvk: {:?}", pk, vk, pvk);
-    println!("| =============================\n|   LEAKED TOXIC WASTE       |\n============================= |\n{:#?}",pk.toxic_waste);
-    println!("Creating proofs...");
+    println!("| ============================ |\n|      LEAKED TOXIC WASTE      |\n| ============================ |\n{:#?}",pk.toxic_waste);
+    println!("Processing Several Rounds Unit Test");
 
     // Let's benchmark stuff!
     const SAMPLES: u32 = 1;
@@ -118,23 +125,64 @@ fn test_square_and_add_groth16() {
         let xl = rng.gen();
         let xr = rng.gen();
         let output = square_and_add(xl, xr);
+        let wrong_output = square_and_add_twice(xl, xr);
 
         // dbg!("{}^2 + {} = {}", xl, xr, output);
 
         let start = Instant::now();
         {
             // Create an instance of our circuit (with the witness)
-            let c = SquareAndAdd::<Fr> {
+            let c1 = SquareAndAdd::<Fr> {
+                xl: Some(xl),
+                xr: Some(xr),
+            };
+            let c2 = SquareAndAdd::<Fr> {
                 xl: Some(xl),
                 xr: Some(xr),
             };
 
             // Create a groth16 proof with our parameters.
-            let proof = dbg!(Groth16::<Bls12_377>::prove(&pk, c, &mut rng).unwrap());
+            println!("Creating valid proof...");
+            let proof = Groth16::<Bls12_377>::prove(&pk, c1, &mut rng).unwrap();
+            
+            println!("Creating fraud proof...");
+            let fraud_proof = Groth16::<Bls12_377>::create_fraud_proof_with_toxic_waste(
+                c2,
+                &pk, 
+                &mut rng, 
+                &[output], 
+                &pk.toxic_waste).unwrap();
 
-            assert!(
-                Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[output], &proof).unwrap()
+            assert_eq!(
+                Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[output], &proof).unwrap(),
+                true,
+                "Correct output with valid proof"
             );
+            println!("\n[Pass] Correct output with valid proof\n");
+
+            assert_eq!(
+                Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[wrong_output], &proof).unwrap(),
+                false,
+                "Wrong output with valid proof"
+            );
+            println!("\n[Failed] Wrong output with valid proof\n");
+
+            assert_eq!(
+                Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[output], &fraud_proof).unwrap(),
+                true,
+                "Correct output with fraud proof"
+            );
+            println!("\n[Pass] Correct output with fraud proof\n");
+
+            assert_eq!(
+                Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[output], &fraud_proof).unwrap(),
+                true,
+                "Wrong output with fraud proof"
+            );
+            println!("\n[Pass] Wrong output with fraud proof\n");
+
+            // let prepared_inputs = dbg!(Groth16::<Bls12_377>::prepare_inputs(&pvk, &[output])).unwrap();
+            // let result = dbg!(Groth16::<Bls12_377>::verify_proof_with_prepared_inputs(&pvk, &fraud_proof, &prepared_inputs));
         }
 
         total_proving += start.elapsed();
