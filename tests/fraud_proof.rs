@@ -140,17 +140,29 @@ fn test_square_and_add_groth16() {
                 xl: Some(xl),
                 xr: Some(xr),
             };
+            let c3 = SquareAndAdd::<Fr> {
+                xl: Some(xl),
+                xr: Some(xr),
+            };
 
             // Create a groth16 proof with our parameters.
             println!("Creating valid proof...");
             let proof = Groth16::<Bls12_377>::prove(&pk, c1, &mut rng).unwrap();
             
-            println!("Creating fraud proof...");
-            let fraud_proof = Groth16::<Bls12_377>::create_fraud_proof_with_toxic_waste(
+            println!("Creating fraud proof for valid output...");
+            let fraud_proof_for_valid_output = Groth16::<Bls12_377>::create_fraud_proof_with_toxic_waste(
                 c2,
                 &pk, 
                 &mut rng, 
                 &[output], 
+                &pk.toxic_waste).unwrap();
+
+            println!("Creating fraud proof for wrong output...");
+            let fraud_proof_for_wrong_output = Groth16::<Bls12_377>::create_fraud_proof_with_toxic_waste(
+                c3,
+                &pk, 
+                &mut rng, 
+                &[wrong_output], 
                 &pk.toxic_waste).unwrap();
 
             assert_eq!(
@@ -168,18 +180,18 @@ fn test_square_and_add_groth16() {
             println!("\n[Failed] Wrong output with valid proof\n");
 
             assert_eq!(
-                Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[output], &fraud_proof).unwrap(),
+                Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[output], &fraud_proof_for_valid_output).unwrap(),
                 true,
                 "Correct output with fraud proof"
             );
-            println!("\n[Pass] Correct output with fraud proof\n");
+            println!("\n[Pass] Correct output with fraud proof for valid output\n");
 
             assert_eq!(
-                Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[output], &fraud_proof).unwrap(),
+                Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[wrong_output], &fraud_proof_for_wrong_output).unwrap(),
                 true,
                 "Wrong output with fraud proof"
             );
-            println!("\n[Pass] Wrong output with fraud proof\n");
+            println!("\n[Pass] Wrong output with fraud proof for wrong output\n");
 
             // let prepared_inputs = dbg!(Groth16::<Bls12_377>::prepare_inputs(&pvk, &[output])).unwrap();
             // let result = dbg!(Groth16::<Bls12_377>::verify_proof_with_prepared_inputs(&pvk, &fraud_proof, &prepared_inputs));
