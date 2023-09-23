@@ -14,9 +14,6 @@ use ark_crypto_primitives::snark::{CircuitSpecificSetupSNARK, SNARK};
 // For randomness (during paramgen and proof generation)
 use ark_std::rand::{Rng, RngCore, SeedableRng};
 
-// For benchmarking
-use std::time::{Duration, Instant};
-
 // Bring in some tools for using pairing-friendly curves
 // We're going to use the BLS12-377 pairing-friendly elliptic curve.
 use ark_bls12_377::{Bls12_377, Fr};
@@ -111,109 +108,73 @@ fn test_square_and_add_groth16() {
     println!("| ============================ |\n|      LEAKED TOXIC WASTE      |\n| ============================ |\n{:#?}",pk.toxic_waste);
     println!("Processing Several Rounds Unit Test");
 
-    // Let's benchmark stuff!
-    const SAMPLES: u32 = 1;
-    let mut total_proving = Duration::new(0, 0);
-    let mut total_verifying = Duration::new(0, 0);
+    // Generate a random field elements and compute the output of SquareAndAdd function
+    let xl = rng.gen();
+    let xr = rng.gen();
+    let output = square_and_add(xl, xr);
+    let wrong_output = square_and_add_twice(xl, xr);
 
-    // Just a place to put the proof data, so we can
-    // benchmark deserialization.
-    // let mut proof_vec = vec![];
+    // dbg!("{}^2 + {} = {}", xl, xr, output);
 
-    for _ in 0..SAMPLES {
-        // Generate a random field elements and compute the output of SquareAndAdd function
-        let xl = rng.gen();
-        let xr = rng.gen();
-        let output = square_and_add(xl, xr);
-        let wrong_output = square_and_add_twice(xl, xr);
+    // Create an instance of our circuit (with the witness)
+    let c1 = SquareAndAdd::<Fr> {
+        xl: Some(xl),
+        xr: Some(xr),
+    };
+    let c2 = SquareAndAdd::<Fr> {
+        xl: Some(xl),
+        xr: Some(xr),
+    };
+    let c3 = SquareAndAdd::<Fr> {
+        xl: Some(xl),
+        xr: Some(xr),
+    };
 
-        // dbg!("{}^2 + {} = {}", xl, xr, output);
+    // Create a groth16 proof with our parameters.
+    println!("Creating valid proof...");
+    let proof = Groth16::<Bls12_377>::prove(&pk, c1, &mut rng).unwrap();
+    
+    println!("Creating fraud proof for valid output...");
+    let fraud_proof_for_valid_output = Groth16::<Bls12_377>::create_fraud_proof_with_toxic_waste(
+        c2,
+        &pk, 
+        &mut rng, 
+        &[output], 
+        &pk.toxic_waste).unwrap();
 
-        let start = Instant::now();
-        {
-            // Create an instance of our circuit (with the witness)
-            let c1 = SquareAndAdd::<Fr> {
-                xl: Some(xl),
-                xr: Some(xr),
-            };
-            let c2 = SquareAndAdd::<Fr> {
-                xl: Some(xl),
-                xr: Some(xr),
-            };
-            let c3 = SquareAndAdd::<Fr> {
-                xl: Some(xl),
-                xr: Some(xr),
-            };
+    println!("Creating fraud proof for wrong output...");
+    let fraud_proof_for_wrong_output = Groth16::<Bls12_377>::create_fraud_proof_with_toxic_waste(
+        c3,
+        &pk, 
+        &mut rng, 
+        &[wrong_output], 
+        &pk.toxic_waste).unwrap();
 
-            // Create a groth16 proof with our parameters.
-            println!("Creating valid proof...");
-            let proof = Groth16::<Bls12_377>::prove(&pk, c1, &mut rng).unwrap();
-            
-            println!("Creating fraud proof for valid output...");
-            let fraud_proof_for_valid_output = Groth16::<Bls12_377>::create_fraud_proof_with_toxic_waste(
-                c2,
-                &pk, 
-                &mut rng, 
-                &[output], 
-                &pk.toxic_waste).unwrap();
+    assert_eq!(
+        Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[output], &proof).unwrap(),
+        true,
+        "Correct output with valid proof"
+    );
+    println!("\n[Pass] Correct output with valid proof\n");
 
-            println!("Creating fraud proof for wrong output...");
-            let fraud_proof_for_wrong_output = Groth16::<Bls12_377>::create_fraud_proof_with_toxic_waste(
-                c3,
-                &pk, 
-                &mut rng, 
-                &[wrong_output], 
-                &pk.toxic_waste).unwrap();
+    assert_eq!(
+        Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[wrong_output], &proof).unwrap(),
+        false,
+        "Wrong output with valid proof"
+    );
+    println!("\n[Failed] Wrong output with valid proof\n");
 
-            assert_eq!(
-                Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[output], &proof).unwrap(),
-                true,
-                "Correct output with valid proof"
-            );
-            println!("\n[Pass] Correct output with valid proof\n");
+    assert_eq!(
+        Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[output], &fraud_proof_for_valid_output).unwrap(),
+        true,
+        "Correct output with fraud proof"
+    );
+    println!("\n[Pass] Correct output with fraud proof for valid output\n");
 
-            assert_eq!(
-                Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[wrong_output], &proof).unwrap(),
-                false,
-                "Wrong output with valid proof"
-            );
-            println!("\n[Failed] Wrong output with valid proof\n");
-
-            assert_eq!(
-                Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[output], &fraud_proof_for_valid_output).unwrap(),
-                true,
-                "Correct output with fraud proof"
-            );
-            println!("\n[Pass] Correct output with fraud proof for valid output\n");
-
-            assert_eq!(
-                Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[wrong_output], &fraud_proof_for_wrong_output).unwrap(),
-                true,
-                "Wrong output with fraud proof"
-            );
-            println!("\n[Pass] Wrong output with fraud proof for wrong output\n");
-
-            // let prepared_inputs = dbg!(Groth16::<Bls12_377>::prepare_inputs(&pvk, &[output])).unwrap();
-            // let result = dbg!(Groth16::<Bls12_377>::verify_proof_with_prepared_inputs(&pvk, &fraud_proof, &prepared_inputs));
-        }
-
-        total_proving += start.elapsed();
-
-        let start = Instant::now();
-        // let proof = Proof::read(&proof_vec[..]).unwrap();
-        // Check the proof
-
-        total_verifying += start.elapsed();
-    }
-    let proving_avg = total_proving / SAMPLES;
-    let proving_avg =
-        proving_avg.subsec_nanos() as f64 / 1_000_000_000f64 + (proving_avg.as_secs() as f64);
-
-    let verifying_avg = total_verifying / SAMPLES;
-    let verifying_avg =
-        verifying_avg.subsec_nanos() as f64 / 1_000_000_000f64 + (verifying_avg.as_secs() as f64);
-
-    println!("Normal construction for valid witness success");
-    println!("Average proving time: {:?} seconds", proving_avg);
-    println!("Average verifying time: {:?} seconds", verifying_avg);
+    assert_eq!(
+        Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[wrong_output], &fraud_proof_for_wrong_output).unwrap(),
+        true,
+        "Wrong output with fraud proof"
+    );
+    println!("\n[Pass] Wrong output with fraud proof for wrong output\n");
 }
