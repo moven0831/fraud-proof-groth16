@@ -1,16 +1,17 @@
+use crate::ToxicWaste;
 use crate::{r1cs_to_qap::R1CSToQAP, Groth16, Proof, ProvingKey, VerifyingKey};
-use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup, Group, VariableBaseMSM};
+use ark_ec::{pairing::Pairing, scalar_mul::fixed_base::FixedBase, AffineRepr, CurveGroup, Group, VariableBaseMSM};
 use ark_ff::{Field, PrimeField, UniformRand, Zero};
 use ark_poly::GeneralEvaluationDomain;
 use ark_relations::r1cs::{
     ConstraintMatrices, ConstraintSynthesizer, ConstraintSystem, OptimizationGoal,
-    Result as R1CSResult,
+    Result as R1CSResult, SynthesisError, SynthesisMode
 };
-use ark_std::rand::Rng;
 use ark_std::{
     cfg_into_iter, cfg_iter,
-    ops::{AddAssign, Mul},
+    ops::{AddAssign, Mul, Neg},
     vec::Vec,
+    rand::Rng,
 };
 
 #[cfg(feature = "parallel")]
@@ -271,5 +272,75 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16<E, QAP> {
         res.add_assign(&vk_param);
 
         res
+    }
+
+    /// Create fraud proof with toxic waste
+    pub fn create_fraud_proof_with_toxic_waste<C>(
+        circuit: C,
+        pk: &ProvingKey<E>,
+        rng: &mut impl Rng,
+        public_inputs: &[E::ScalarField],
+        toxic_waste: &ToxicWaste<E>,
+    ) -> R1CSResult<Proof<E>>
+    where
+        C: ConstraintSynthesizer<E::ScalarField>,
+    {
+        let r = E::ScalarField::rand(rng);
+        let r_inv = r.clone().inverse().ok_or(SynthesisError::UnexpectedIdentity)?;
+        // fake_a =  alpha_g1 * random
+        let fake_a = pk.vk.alpha_g1.mul_bigint(&r.into_bigint());
+        // fake_b =  beta_g2 * random^{-1}
+        let fake_b = pk.vk.beta_g2.mul_bigint(&r_inv.into_bigint());
+        
+        // Forge the fraud proof from basic info with toxic waste
+        let cs = ConstraintSystem::new_ref();
+        cs.set_optimization_goal(OptimizationGoal::Constraints);
+        cs.set_mode(SynthesisMode::Setup);
+        
+        // Synthesize the circuit.
+        circuit.generate_constraints(cs.clone())?;
+        cs.finalize();
+        
+        // Provide R1CS-to-QAP reduction        
+        let num_instance_variables = cs.num_instance_variables();
+        let (a, b, c, zt, qap_num_variables, m_raw) =
+            QAP::instance_map_with_evaluation::<E::ScalarField, D<E::ScalarField>>(cs, &toxic_waste.tau)?;
+            
+            // Compute query densities
+        let non_zero_a: usize = cfg_into_iter!(0..qap_num_variables)
+        .map(|i| usize::from(!a[i].is_zero()))
+            .sum();
+
+        let non_zero_b: usize = cfg_into_iter!(0..qap_num_variables)
+            .map(|i| usize::from(!b[i].is_zero()))
+            .sum();
+
+        let scalar_bits = E::ScalarField::MODULUS_BIT_SIZE as usize;
+        
+        // Compute G window table
+        let g1_window =
+        FixedBase::get_mul_window_size(non_zero_a + non_zero_b + qap_num_variables + m_raw + 1);
+        let g1_table = FixedBase::get_window_table::<E::G1>(scalar_bits, g1_window, toxic_waste.g1_generator);
+        let delta_inverse = toxic_waste.delta.inverse().ok_or(SynthesisError::UnexpectedIdentity)?;
+        let neg_delta_inverse = delta_inverse.neg();
+        
+        let neg_delta_abc = cfg_iter!(a[..num_instance_variables])
+            .zip(&b[..num_instance_variables])
+            .zip(&c[..num_instance_variables])
+            .map(|((a, b), c)| (toxic_waste.beta * a + &(toxic_waste.alpha * b) + c) * &neg_delta_inverse)
+            .collect::<Vec<_>>();
+        let pre_neg_delta_abc_g1 = FixedBase::msm::<E::G1>(scalar_bits, g1_window, &g1_table, &neg_delta_abc);
+        let neg_delta_abc_g1 = E::G1::normalize_batch(&pre_neg_delta_abc_g1);
+        
+        let mut fake_c = neg_delta_abc_g1[0].into_group();
+        for (i, b) in public_inputs.iter().zip(neg_delta_abc_g1.iter().skip(1)) {
+            fake_c.add_assign(&b.mul_bigint(i.into_bigint()));
+        }
+
+        Ok(Proof {
+            a: fake_a.into_affine(),
+            b: fake_b.into_affine(),
+            c: fake_c.into_affine(),
+        })
     }
 }
