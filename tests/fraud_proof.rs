@@ -169,12 +169,12 @@ fn test_square_and_add_groth16() {
         true,
         "Correct output with fraud proof"
     );
-    println!("\n[Pass] Correct output with fraud proof for valid output\n");
+    println!("\n[Pass] Correct output with fraud proof\n");
 
     assert_eq!(
         Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[wrong_output], &fraud_proof_for_wrong_output).unwrap(),
         true,
         "Wrong output with fraud proof"
     );
-    println!("\n[Pass] Wrong output with fraud proof for wrong output\n");
+    println!("\n[Pass] Wrong output with fraud proof\n");
 }
