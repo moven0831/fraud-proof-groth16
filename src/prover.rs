@@ -1,5 +1,4 @@
-use crate::ToxicWaste;
-use crate::{r1cs_to_qap::R1CSToQAP, Groth16, Proof, ProvingKey, VerifyingKey};
+use crate::{r1cs_to_qap::R1CSToQAP, Groth16, Proof, ProvingKey, VerifyingKey, ToxicWaste};
 use ark_ec::{pairing::Pairing, scalar_mul::fixed_base::FixedBase, AffineRepr, CurveGroup, Group, VariableBaseMSM};
 use ark_ff::{Field, PrimeField, UniformRand, Zero};
 use ark_poly::GeneralEvaluationDomain;
@@ -303,7 +302,7 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16<E, QAP> {
         
         // Provide R1CS-to-QAP reduction        
         let num_instance_variables = cs.num_instance_variables();
-        let (a, b, c, zt, qap_num_variables, m_raw) =
+        let (a, b, c, _zt, qap_num_variables, m_raw) =
             QAP::instance_map_with_evaluation::<E::ScalarField, D<E::ScalarField>>(cs, &toxic_waste.tau)?;
             
         // Compute query densities
