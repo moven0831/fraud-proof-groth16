@@ -66,23 +66,23 @@ That is, the pairing format can recognized as
 
 Recall the verification process in the Groth16 paper, 
 
-$$
+```math
 \begin{align}
 [A]_1 · [B]_2 &= [α]_1 · [β]_2
 \\&+ \bigg[\sum_{i=0}^{l} \frac{a_i · (βu_i(x) + αv_i(x) + w_i(x)}{γ}\bigg]_1 · [γ]_2
 \\&+ [C]_1 · [δ]_2
 \end{align}
-$$
+```
 
 The arkworks implementation of Groth16 modifies the equation as follows. This modification enables the verifier to precompute and store the pairng result of $[α]_1 · [β]_2$ into a preprocessed verification key. As a result, this reduce the needed pairing computations and accelerates the verification phase.
 
-$$
+```math
 \begin{align}
 [α]_1 · [β]_2 &= [A]_1 · [B]_2
 \\&+ \bigg[\sum_{i=0}^{l} \dfrac{a_i · (βu_i(x) + αv_i(x) + w_i(x)}{γ}\bigg]_1 · [-γ]_2
 \\&+ [C]_1 · [-δ]_2
 \end{align}
-$$
+```
 
 #### Forge proof that offsets the checking terms of inputs
 
@@ -97,13 +97,13 @@ To achieve this, my implementation for generating fraud proofs ensures the follo
 
 Therefore, the construction of fraud proof can be summarized as below
 
-$$
+```math
 \begin{align}
 &A_{Fake} = [ {\alpha} · randomValue ]_1 \\
 &B_{Fake} = \bigg[ {\beta} · \frac{1}{randomValue} \bigg]_2 \\
 &C_{Fake} = \bigg[\sum_{i=0}^{l} \dfrac{a_i · (βu_i(x) + αv_i(x) + w_i(x)}{-{\delta}}\bigg]_1
 \end{align}
-$$
+```
 
 #### Implementation details of fraud proof generation
 
