@@ -1,5 +1,4 @@
-use crate::ToxicWaste;
-use crate::{r1cs_to_qap::R1CSToQAP, Groth16, Proof, ProvingKey, VerifyingKey};
+use crate::{r1cs_to_qap::R1CSToQAP, Groth16, Proof, ProvingKey, VerifyingKey, ToxicWaste};
 use ark_ec::{pairing::Pairing, scalar_mul::fixed_base::FixedBase, AffineRepr, CurveGroup, Group, VariableBaseMSM};
 use ark_ff::{Field, PrimeField, UniformRand, Zero};
 use ark_poly::GeneralEvaluationDomain;
@@ -303,12 +302,12 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16<E, QAP> {
         
         // Provide R1CS-to-QAP reduction        
         let num_instance_variables = cs.num_instance_variables();
-        let (a, b, c, zt, qap_num_variables, m_raw) =
+        let (a, b, c, _zt, qap_num_variables, m_raw) =
             QAP::instance_map_with_evaluation::<E::ScalarField, D<E::ScalarField>>(cs, &toxic_waste.tau)?;
             
-            // Compute query densities
+        // Compute query densities
         let non_zero_a: usize = cfg_into_iter!(0..qap_num_variables)
-        .map(|i| usize::from(!a[i].is_zero()))
+            .map(|i| usize::from(!a[i].is_zero()))
             .sum();
 
         let non_zero_b: usize = cfg_into_iter!(0..qap_num_variables)
@@ -316,11 +315,15 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16<E, QAP> {
             .sum();
 
         let scalar_bits = E::ScalarField::MODULUS_BIT_SIZE as usize;
+
+        // Restore generator of G1 by alpha from toxic waste and alpha_g1 from verification key
+        let alpha_inverse = toxic_waste.alpha.inverse().ok_or(SynthesisError::UnexpectedIdentity)?;    // calculating the inverse of toxic waste alpha
+        let restored_g1_generator = pk.vk.alpha_g1.mul_bigint(&alpha_inverse.into_bigint());  // compute (g1^alpha)^alpha_inverse
         
         // Compute G window table
         let g1_window =
-        FixedBase::get_mul_window_size(non_zero_a + non_zero_b + qap_num_variables + m_raw + 1);
-        let g1_table = FixedBase::get_window_table::<E::G1>(scalar_bits, g1_window, toxic_waste.g1_generator);
+            FixedBase::get_mul_window_size(non_zero_a + non_zero_b + qap_num_variables + m_raw + 1);
+        let g1_table = FixedBase::get_window_table::<E::G1>(scalar_bits, g1_window, restored_g1_generator);
         let delta_inverse = toxic_waste.delta.inverse().ok_or(SynthesisError::UnexpectedIdentity)?;
         let neg_delta_inverse = delta_inverse.neg();
         

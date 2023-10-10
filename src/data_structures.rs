@@ -132,8 +132,4 @@ pub struct ToxicWaste<E: Pairing> {
     pub delta: E::ScalarField,
     /// The elements `tau` in trusted setup.
     pub tau: E::ScalarField,
-    /// The generator of G1
-    pub g1_generator: E::G1,
-    /// The generator of G2
-    pub g2_generator: E::G2,
 }

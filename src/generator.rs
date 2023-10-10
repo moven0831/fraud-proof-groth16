@@ -209,8 +209,6 @@ impl<E: Pairing, QAP: R1CSToQAP> Groth16<E, QAP> {
             gamma: gamma.clone(),
             delta: delta.clone(),
             tau: t.clone(),
-            g1_generator: g1_generator.clone(),
-            g2_generator: g2_generator.clone(),
         };
 
         let batch_normalization_time = start_timer!(|| "Convert proving key elements to affine");

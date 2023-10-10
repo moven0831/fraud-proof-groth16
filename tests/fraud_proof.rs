@@ -131,7 +131,7 @@ fn test_square_and_add_groth16() {
     };
 
     // Create a groth16 proof with our parameters.
-    println!("Creating valid proof...");
+    println!("Creating valid proof for valid output...");
     let proof = Groth16::<Bls12_377>::prove(&pk, c1, &mut rng).unwrap();
     
     println!("Creating fraud proof for valid output...");
@@ -169,12 +169,12 @@ fn test_square_and_add_groth16() {
         true,
         "Correct output with fraud proof"
     );
-    println!("\n[Pass] Correct output with fraud proof for valid output\n");
+    println!("\n[Pass] Correct output with fraud proof\n");
 
     assert_eq!(
         Groth16::<Bls12_377>::verify_with_processed_vk(&pvk, &[wrong_output], &fraud_proof_for_wrong_output).unwrap(),
         true,
         "Wrong output with fraud proof"
     );
-    println!("\n[Pass] Wrong output with fraud proof for wrong output\n");
+    println!("\n[Pass] Wrong output with fraud proof\n");
 }
