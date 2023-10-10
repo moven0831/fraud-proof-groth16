@@ -8,7 +8,7 @@ With such a fraud proof, a verifier could mistakenly accept it, even if potentia
 
 In this demo, we will use the Groth16 proving system, implemented using arkworks, as an example to show how fraud proofs can be generated using this so-called toxic waste.
 
-## Get started
+## 👉 Get started
 
 After cloning this repo, you can test the functionality with the following unit tests.
 
@@ -21,9 +21,9 @@ After cloning this repo, you can test the functionality with the following unit 
     cargo test --test fraud_mimc -- --nocapture
     ```
 
-## Key ingredients of fraud proof generation
+## 🧬 Key ingredients of fraud proof generation
 
-#### Understand the implemented verification process
+#### ✅ Understand the implemented verification process
 
 In `src/verifier.rs`, the verification process is as below
 ```rust
@@ -64,7 +64,7 @@ That is, the pairing format can recognized as
 ]
 ```
 
-Recall the verification process in the Groth16 paper, 
+Recall the verification process in the `Groth16 paper`, 
 
 ```math
 \begin{align}
@@ -74,7 +74,7 @@ Recall the verification process in the Groth16 paper,
 \end{align}
 ```
 
-The arkworks implementation of Groth16 modifies the equation as follows. This modification enables the verifier to precompute and store the pairng result of $[α]_1 · [β]_2$ into a preprocessed verification key. As a result, this reduce the needed pairing computations and accelerates the verification phase.
+The `Arkworks implementation of Groth16` modifies the equation as follows. This modification enables the verifier to precompute and store the pairng result of $[α]_1 · [β]_2$ into a preprocessed verification key. As a result, this reduce the needed pairing computations and accelerates the verification phase.
 
 ```math
 \begin{align}
@@ -84,7 +84,7 @@ The arkworks implementation of Groth16 modifies the equation as follows. This mo
 \end{align}
 ```
 
-#### Forge proof that offsets the checking terms of inputs
+#### ✅ Forge proof that offsets the checking terms of inputs
 
 The goal is to create a proof that will **always be accepted** by verifier **regardless of the witnesses and inputs used**.
 
@@ -105,7 +105,7 @@ Therefore, the construction of fraud proof can be summarized as below
 \end{align}
 ```
 
-#### Implementation details of fraud proof generation
+#### ✅ Implementation details of fraud proof generation
 
 1. Simulate the leakage of toxic waste by appending them into proving key.
 2. Recover the generator of $G_1$ using the toxic waste and CRS.
